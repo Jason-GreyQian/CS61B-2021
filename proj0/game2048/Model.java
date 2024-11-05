@@ -140,16 +140,10 @@ public class Model extends Observable {
         boolean changed;
         changed = false;
 
-        // TODO: Modify this.board (and perhaps this.score) to account
-        // for the tilt to the Side SIDE. If the board changed, set the
-        // changed local variable to true.
-        if (side == Side.NORTH) {
-            changed = moveUp();
-        } else {
-            this.board.setViewingPerspective(side);
-            changed = moveUp();
-            this.board.setViewingPerspective(Side.NORTH);
-        }
+        // when i refactor my code, i reference the code https://github.com/duilec/CS61B-spring2021/blob/main/proj0/game2048/Model.java
+        this.board.setViewingPerspective(side);
+        changed = moveUp();
+        this.board.setViewingPerspective(Side.NORTH);
 
         checkGameOver();
         if (changed) {
@@ -167,53 +161,39 @@ public class Model extends Observable {
         int size = this.size();
         boolean changed = false;
         for (int col = 0; col < size; col++) {
-            if (moveUpInCol(col)) {
-                changed = true;
+            int upperBound = size - 1;  //the last null place or the tile which hasn't been merged
+            for (int row = size - 1; row >= 0; row--) {
+                Tile tile = this.board.tile(col, row);
+                if (tile != null) {     // only the tile which is not null just can move up
+                    int moveRow = getMoveRow(col, row, upperBound, tile);
+                    if (moveRow != row) { // state has been changed
+                        changed = true;
+                        if (this.board.move(col, moveRow, tile)) { // if true merge the tile update score and upperbound
+                            this.score += 2 * tile.value();
+                            upperBound = moveRow - 1;
+                        }
+                    }
+                }
             }
         }
         return changed;
     }
 
     /**
-     * Move up in single col j if the col's state has been changed return true.
-     * iterate from size - 2 row
+     * Get the tile can move to which position. the position should between [row, upperBound]
      */
-    private boolean moveUpInCol(int col) {
-        boolean changed = false;
-        int size = this.size();
-        int upperBound = size;      // the tile just can find position in [self.row + 1, upperBound)
-        for (int row = size - 2; row >= 0; row--) {
-            Tile tile = board.tile(col, row);
-            if (tile != null) {     // check the tile weather can move up
-                int pos;
-                Tile lastTile = null;
-                for (pos = row + 1; pos < upperBound; pos++) {
-                    lastTile = board.tile(col, pos);
-                    if (lastTile != null) {
-                        break;
-                    }
-                }
-                if (lastTile == null) { // 上方为空，直接移动到上方
-                    this.board.move(col, pos - 1, tile);
-                    upperBound = pos;
-                    changed = true;
-                } else {    //上方遇到了一个非空的
-                    if (lastTile.value() == tile.value()) { // 值相同合并
-                        this.board.move(col, pos, tile);
-                        changed = true;
-                        this.score += 2 * tile.value();
-                        upperBound = pos;
-                    } else if (pos == row + 1) { //值不同，且就是它上一个tile，不能移动
-                        upperBound = pos;
-                    } else { //值不同，但是能移动
-                        this.board.move(col, pos - 1, tile);
-                        upperBound = pos;
-                        changed = true;
-                    }
-                }
+    private int getMoveRow(int col, int row, int upperBound, Tile tile) {
+        int maxRow;
+        for (maxRow = upperBound; maxRow >= row; maxRow--) {
+            Tile t = this.board.tile(col, maxRow);
+            if (t == null) {
+                break;
+            }
+            if (t.value() == tile.value()) {
+                break;
             }
         }
-        return changed;
+        return maxRow;
     }
 
     /**
