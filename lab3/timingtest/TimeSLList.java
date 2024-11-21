@@ -31,7 +31,7 @@ public class TimeSLList {
 
         // How many times has the experiment been conducted
         int nTimes = 8;
-        int nOpts = 1000;
+        int nOpts = 10000;
         int[] nArray = new int[nTimes];
         for (int i = 0; i < nTimes; i++) {
             nArray[i] = (int) (Math.pow(2, i) * 1000);
