@@ -1,7 +1,9 @@
 package gitlet;
+import gitlet.Utils.*;
+
 
 /** Driver class for Gitlet, a subset of the Git version-control system.
- *  @author TODO
+ *  @author GreyQian
  */
 public class Main {
 
@@ -9,16 +11,29 @@ public class Main {
      *  <COMMAND> <OPERAND1> <OPERAND2> ... 
      */
     public static void main(String[] args) {
-        // TODO: what if args is empty?
+        // what if args is empty?
+        if (args.length < 1) {
+            MyUtils.exit("Please enter a command.");
+        }
+
         String firstArg = args[0];
         switch(firstArg) {
             case "init":
-                // TODO: handle the `init` command
+                MyUtils.validateOperands(args, 1);
+                Repository.init();
                 break;
             case "add":
-                // TODO: handle the `add [filename]` command
+                MyUtils.validateOperands(args, 2);
+                Repository.checkWorkingDirectory();
+                Repository.add(args[1]);
                 break;
-            // TODO: FILL THE REST IN
+            case "commit":
+                MyUtils.validateOperands(args, 2);
+                Repository.checkWorkingDirectory();
+                Repository.commit(args[1]);
+                break;
+            default:
+                MyUtils.exit("No command with that name exists.");
         }
     }
 }
