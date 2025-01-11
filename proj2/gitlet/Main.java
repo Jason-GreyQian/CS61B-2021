@@ -1,5 +1,4 @@
 package gitlet;
-import gitlet.Utils.*;
 
 
 /** Driver class for Gitlet, a subset of the Git version-control system.
@@ -31,6 +30,11 @@ public class Main {
                 MyUtils.validateOperands(args, 2);
                 Repository.checkWorkingDirectory();
                 Repository.commit(args[1]);
+                break;
+            case "rm":
+                MyUtils.validateOperands(args, 2);
+                Repository.checkWorkingDirectory();
+                Repository.rm(args[1]);
                 break;
             default:
                 MyUtils.exit("No command with that name exists.");

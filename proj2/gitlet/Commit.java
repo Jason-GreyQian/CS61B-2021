@@ -3,10 +3,7 @@ package gitlet;
 
 import java.io.File;
 import java.io.Serializable;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 
 import static gitlet.Utils.*;
 
@@ -118,14 +115,19 @@ public class Commit implements Serializable {
     }
 
     /** Update the track file map based the stage add and removal. */
-    public void updateTrackMaps(Map<String, String> add, Map<String, String> remove) {
+    public void updateTrackMaps(Map<String, String> add, Set<String> remove) {
         for (Map.Entry<String, String> entry : add.entrySet()) {
             trackedMaps.put(entry.getKey(), entry.getValue());
         }
 
-        for (String fileName :remove.keySet()) {
+        for (String fileName :remove) {
             trackedMaps.remove(fileName);
         }
+    }
+
+    /** Check weather this commit tracked the file. */
+    public boolean isTrackedFile(String fileName) {
+        return trackedMaps.containsKey(fileName);
     }
 
 

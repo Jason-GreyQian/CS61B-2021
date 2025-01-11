@@ -1,6 +1,7 @@
 package gitlet;
 
 import java.io.File;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -64,9 +65,9 @@ public class Repository {
      */
     private static TreeMap<String, String> stageAdd = null;
     /**
-     * The map of stage removal.
+     * The set of stage removal.
      */
-    private static TreeMap<String, String> stageRemoval = null;
+    private static HashSet<String> stageRemoval = null;
     /**
      * The map of branched.
      */
@@ -135,7 +136,7 @@ public class Repository {
             stageAdd.put(fileName, fileHash);
         }
 
-        if (stageRemoval.containsKey(fileName)) {
+        if (stageRemoval.contains(fileName)) {
             stageRemoval.remove(fileName);
         }
 
@@ -143,13 +144,13 @@ public class Repository {
     }
 
     /**
-     *  Saves a snapshot of tracked files in the current commit and staging area so they can be restored at a later time
-     *  Create a new commit, By default, each commit’s snapshot of files will as same as its parent commit’s snapshot of files;
-     *  Update the stage add area to the commit
-     *  Untrack the file which is been stage removal
-     *  Special case:
-     *  1. commit message is blank, print the error message
-     *  2. the stage area is empty , print the error message
+     * Saves a snapshot of tracked files in the current commit and staging area so they can be restored at a later time
+     * Create a new commit, By default, each commit’s snapshot of files will as same as its parent commit’s snapshot of files;
+     * Update the stage add area to the commit
+     * Untrack the file which is been stage removal
+     * Special case:
+     * 1. commit message is blank, print the error message
+     * 2. the stage area is empty , print the error message
      */
     public static void commit(String message) {
         if (message.isEmpty()) {
@@ -178,6 +179,39 @@ public class Repository {
         saveInfoMaps();
     }
 
+    /** Unstage the file.
+     *  if file is currently staged for addition unstaged it
+     *  If the file is tracked in the current commit, stage it for removal and remove the file from the working directory
+     *  if the user has not already done so (do not remove it unless it is tracked in the current commit).
+     *  If the file is neither staged nor tracked by the head commit, print the error message No reason to remove the file.
+     * @param fileName
+     */
+    public static void rm(String fileName) {
+        getInfoMaps();
+
+        String currentCommitID = getCurrentCommit();
+        Commit currentCommit = Commit.getCommit(currentCommitID);
+
+        // if file is currently staged for addition unstaged it
+        if (stageAdd.containsKey(fileName)) {               // if file is currently staged for addition unstaged it
+            stageAdd.remove(fileName);
+            return;
+        } else if (currentCommit.isTrackedFile(fileName)) { // If the file is tracked in the current commit
+            File file = join(CWD, fileName);
+            // stage if for removal
+            stageRemoval.add(fileName);
+            // remove the file if user has not already done so
+            if (file.exists()) {
+                restrictedDelete(file);
+            }
+        } else {                                            // If the file is neither staged nor tracked by the head commit, print the error message.
+            MyUtils.exit("No reason to remove the file.");
+        }
+
+
+        saveInfoMaps();
+    }
+
 
     // ================================================================================================================
     // This below is the Helper function
@@ -198,7 +232,7 @@ public class Repository {
 
         branches = new TreeMap<>();
         stageAdd = new TreeMap<>();
-        stageRemoval = new TreeMap<>();
+        stageRemoval = new HashSet<>();
     }
 
     /**
@@ -209,7 +243,7 @@ public class Repository {
     private static void getInfoMaps() {
         branches = readObject(BRANCHES, TreeMap.class);
         stageAdd = readObject(STAGE_ADD, TreeMap.class);
-        stageRemoval = readObject(STAGE_REMOVAL, TreeMap.class);
+        stageRemoval = readObject(STAGE_REMOVAL, HashSet.class);
     }
 
     /**
