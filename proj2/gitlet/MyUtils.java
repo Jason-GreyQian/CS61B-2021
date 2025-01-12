@@ -2,6 +2,7 @@ package gitlet;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Set;
 
 import static gitlet.Utils.*;
 
@@ -47,5 +48,12 @@ public class MyUtils {
         createFile(blobFile);
         writeContents(file, content);
         return hash;
+    }
+
+    /** Helper function for iterator the set and print its content. */
+    public static void printFiles(Set<String> files, String prefix) {
+        for (String file : files) {
+            System.out.println(file + prefix);
+        }
     }
 }

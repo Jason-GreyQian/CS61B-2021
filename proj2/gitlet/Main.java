@@ -36,6 +36,25 @@ public class Main {
                 Repository.checkWorkingDirectory();
                 Repository.rm(args[1]);
                 break;
+            case "log":
+                MyUtils.validateOperands(args, 1);
+                Repository.checkWorkingDirectory();
+                Repository.log();
+                break;
+            case "global-log":
+                MyUtils.validateOperands(args, 1);
+                Repository.checkWorkingDirectory();
+                Repository.globalLog();
+                break;
+            case "find":
+                MyUtils.validateOperands(args, 2);
+                Repository.checkWorkingDirectory();
+                Repository.find(args[1]);
+            case "status":
+                MyUtils.validateOperands(args, 1);
+                Repository.checkWorkingDirectory();
+                Repository.status();
+                break;
             default:
                 MyUtils.exit("No command with that name exists.");
         }

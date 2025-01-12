@@ -3,6 +3,7 @@ package gitlet;
 
 import java.io.File;
 import java.io.Serializable;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 import static gitlet.Utils.*;
@@ -28,7 +29,7 @@ public class Commit implements Serializable {
     /**
      * The timestamp of this Commit.
      */
-    private String timestamp;
+    private Date timestamp;
     /**
      * The parent commit id.
      */
@@ -41,7 +42,7 @@ public class Commit implements Serializable {
     /**
      * The first commit's parent .
      */
-    private final String FIRSTCOMMITPID = "commit-1";
+    public static final String FIRSTCOMMITPID = "commit-1";
 
 
     // Constructor
@@ -53,13 +54,13 @@ public class Commit implements Serializable {
         message = "initial commit";
         directParentID = FIRSTCOMMITPID;
         trackedMaps = new TreeMap<>();
-        timestamp = "00:00:00 UTC, Thursday, 1 January 1970";
+        timestamp = new Date(0);
     }
 
     public Commit(String message, String parentId) {
         this.message = message;
         this.directParentID = parentId;
-        this.timestamp = new Date().toString();
+        this.timestamp = new Date();
         Commit directParentCommit = getCommit(parentId);
         if (directParentCommit != null) {
             this.trackedMaps = directParentCommit.trackedMaps;
@@ -70,6 +71,18 @@ public class Commit implements Serializable {
 
     // Getter and Setter
 
+    public String getDirectParentID() {
+        return directParentID;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    /** Get the Tracked File maps. */
+    public Map<String, String> getTrackedFilesMap() {
+        return trackedMaps;
+    }
 
     // Some useful function
 
@@ -99,7 +112,7 @@ public class Commit implements Serializable {
      * Get the commit sha1 id.
      */
     public String getCommitID() {
-        return sha1(message, timestamp, directParentID, trackedMaps.toString());
+        return sha1(message, timestamp.toString(), directParentID, trackedMaps.toString());
     }
 
     /**
@@ -114,21 +127,58 @@ public class Commit implements Serializable {
         return fileHash.equals(trackedMaps.get(fileName));
     }
 
-    /** Update the track file map based the stage add and removal. */
+    /**
+     * Update the track file map based the stage add and removal.
+     */
     public void updateTrackMaps(Map<String, String> add, Set<String> remove) {
         for (Map.Entry<String, String> entry : add.entrySet()) {
             trackedMaps.put(entry.getKey(), entry.getValue());
         }
 
-        for (String fileName :remove) {
+        for (String fileName : remove) {
             trackedMaps.remove(fileName);
         }
     }
 
-    /** Check weather this commit tracked the file. */
+    /**
+     * Check weather this commit tracked the file.
+     */
     public boolean isTrackedFile(String fileName) {
         return trackedMaps.containsKey(fileName);
     }
 
+    /**
+     * The format is as below.
+     * ===
+     * commit 3e8bf1d794ca2e9ef8a4007275acf3751c7170ff(this is commitID)
+     * Merge: 4975af1(first parent's 7th commitID) 2c1ead1(second parent's 7th commitID) if just has one parent delete this line
+     * Date: Sat Nov 11 12:30:00 2017 -0800
+     * Merged development into master. (commit log)
+     */
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("===").append("\n");
+        String commitID = getCommitID();
+        sb.append("commit ").append(commitID).append("\n");
+        if (otherParentID != null) {
+            String firstParent = directParentID.substring(0, 7);
+            String secondParent = otherParentID.substring(0, 7);
+            sb.append("Merge: ").append(firstParent).append(' ').append(secondParent).append("\n");
+        }
+        sb.append("Date: ").append(getFormatDate()).append("\n");
+        sb.append(message).append("\n");
+        return sb.toString();
+    }
+
+    /**
+     * Get the format date.
+     * for example: Thu Nov 9 20:00:05 2017 -0800
+     */
+    private String getFormatDate() {
+        SimpleDateFormat formatter = new SimpleDateFormat("EEE MMM dd HH:mm:ss yyyy Z");
+        formatter.setTimeZone(TimeZone.getTimeZone("GMT-08:00"));
+        return formatter.format(timestamp);
+    }
 
 }

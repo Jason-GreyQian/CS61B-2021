@@ -1,9 +1,7 @@
 package gitlet;
 
 import java.io.File;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 
 import static gitlet.Utils.*;
 
@@ -179,11 +177,13 @@ public class Repository {
         saveInfoMaps();
     }
 
-    /** Unstage the file.
-     *  if file is currently staged for addition unstaged it
-     *  If the file is tracked in the current commit, stage it for removal and remove the file from the working directory
-     *  if the user has not already done so (do not remove it unless it is tracked in the current commit).
-     *  If the file is neither staged nor tracked by the head commit, print the error message No reason to remove the file.
+    /**
+     * Unstage the file.
+     * if file is currently staged for addition unstaged it
+     * If the file is tracked in the current commit, stage it for removal and remove the file from the working directory
+     * if the user has not already done so (do not remove it unless it is tracked in the current commit).
+     * If the file is neither staged nor tracked by the head commit, print the error message No reason to remove the file.
+     *
      * @param fileName
      */
     public static void rm(String fileName) {
@@ -208,8 +208,119 @@ public class Repository {
             MyUtils.exit("No reason to remove the file.");
         }
 
-
         saveInfoMaps();
+    }
+
+    /**
+     * Starting at the current head commit, display information about each commit backwards along the commit tree until the initial commit.
+     */
+    public static void log() {
+        String commitID = getCurrentCommit();
+
+        while (!commitID.equals(Commit.FIRSTCOMMITPID)) {
+            Commit commit = Commit.getCommit(commitID);
+            System.out.println(commit.toString());
+            commitID = commit.getDirectParentID();
+        }
+    }
+
+    /**
+     * Global log.
+     * Like log, except displays information about all commits ever made. The order of the commits does not matter.
+     * Iterate the cimmits folder
+     */
+    public static void globalLog() {
+        List<String> commitsID = Utils.plainFilenamesIn(COMMITS);
+        for (String commitID : commitsID) {
+            Commit commit = Commit.getCommit(commitID);
+            System.out.println(commit.toString());
+        }
+    }
+
+    /**
+     * Prints out the ids of all commits that have the given commit message, one per line.
+     * If no such commit exists, prints the error message Found no commit with that message.
+     */
+    public static void find(String message) {
+        List<String> commitsID = Utils.plainFilenamesIn(COMMITS);
+        boolean found = false;
+
+        for (String commitID : commitsID) {
+            Commit commit = Commit.getCommit(commitID);
+            String commitMessage = commit.getMessage();
+            if (message.equals(commitMessage)) {
+                System.out.println(commitID);
+                found = true;
+            }
+        }
+
+        if (!found) {
+            MyUtils.exit("Found no commit with that message.");
+        }
+
+    }
+
+    /**
+     * Displays what branches currently exist, and marks the current branch with a *.
+     * Also displays what files have been staged for addition or removal.
+     * The example as below:
+     * === Branches ===
+     * *master
+     * other-branch
+     * <p>
+     * === Staged Files ===
+     * wug.txt
+     * wug2.txt
+     * <p>
+     * === Removed Files ===
+     * goodbye.txt
+     * <p>
+     * === Modifications Not Staged For Commit ===
+     * junk.txt (deleted)
+     * wug3.txt (modified)
+     * <p>
+     * === Untracked Files ===
+     * random.stuff
+     */
+    public static void status() {
+        getInfoMaps();
+        String currentBranch = getCurrentBranch();
+
+        // add the current branches
+        System.out.println("=== Branches ===");
+        System.out.println("*" + currentBranch);
+        for (String branch : branches.keySet()) {
+            if (!branch.equals(currentBranch)) {
+                System.out.println(branch);
+            }
+        }
+        System.out.println();
+
+        // add the staged add files
+        System.out.println("=== Staged Files ===");
+        MyUtils.printFiles(stageAdd.keySet(), "");
+        System.out.println();
+
+        // add the removal files
+        System.out.println("=== Removed Files ===");
+        MyUtils.printFiles(stageRemoval, "");
+        System.out.println();
+
+        Set<String> modifiedFiles = new HashSet<>();
+        Set<String> deletedFiles = new HashSet<>();
+        Set<String> untrackedFiles = new HashSet<>();
+        getFileStatus(modifiedFiles, deletedFiles, untrackedFiles);
+
+        // Modifications but Not Staged
+        System.out.println("=== Modifications Not Staged For Commit ===");
+        MyUtils.printFiles(deletedFiles, " (deleted)");
+        MyUtils.printFiles(modifiedFiles, " (modified)");
+        System.out.println();
+
+        // Untracked Files
+        System.out.println("=== Untracked Files ===");
+        MyUtils.printFiles(untrackedFiles, "");
+        System.out.println();
     }
 
 
@@ -289,6 +400,60 @@ public class Repository {
     public static void checkWorkingDirectory() {
         if (!GITLET_DIR.exists()) {
             MyUtils.exit("Not in an initialized Gitlet directory.");
+        }
+    }
+
+    /**
+     * Get the file status.
+     * Untracked files : exist in working space but not add and not commit(include the rm files)
+     * Modified files :
+     * 1. commit but the content is change and the change is not add
+     * 2. added but the content is different of the working space content
+     * Deleted Files:
+     * 1. added but not in the working space
+     * 2. not in stage removal but commit it and not in the current working space
+     */
+    private static void getFileStatus(Set<String> modifiedFiles, Set<String> deletedFiles, Set<String> untrackedFiles) {
+        List<String> workingSpace = Utils.plainFilenamesIn(CWD);
+        Commit currentCommit = Commit.getCommit(getCurrentCommit());
+
+        for (String fileName : workingSpace) {
+            if (!stageAdd.containsKey(fileName) && !currentCommit.isTrackedFile(fileName)) {
+                untrackedFiles.add(fileName);
+            }
+        }
+
+        for (Map.Entry<String, String> entry : currentCommit.getTrackedFilesMap().entrySet()) {
+            String fileName = entry.getKey();
+            String fileHash = entry.getValue();
+
+            // commit and in the working space
+            if (workingSpace.contains(fileName)) {
+                String workingFileHash = MyUtils.getFileHash(join(CWD, fileName));
+                if (!fileHash.equals(workingFileHash) && !stageAdd.containsKey(fileName)) {
+                    // content is not same and not in stage add area
+                    modifiedFiles.add(fileName);
+                }
+            } else {            // commit but not in the working space
+                if (!stageRemoval.contains(fileName)) {
+                    deletedFiles.add(fileName);
+                }
+            }
+        }
+
+        for (Map.Entry<String, String> entry : stageAdd.entrySet()) {
+            String fileName = entry.getKey();
+            String fileHash = entry.getValue();
+            // added and in the working space
+            if (workingSpace.contains(fileName)) {
+                String workingFileHash = MyUtils.getFileHash(join(CWD, fileName));
+                if (!fileHash.equals(workingFileHash)) {
+                    modifiedFiles.add(fileName);
+                }
+            } else {
+                // added but not in the working space
+                deletedFiles.add(fileName);
+            }
         }
     }
 
