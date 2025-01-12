@@ -55,6 +55,30 @@ public class Main {
                 Repository.checkWorkingDirectory();
                 Repository.status();
                 break;
+            case "checkout":
+                Repository.checkWorkingDirectory();
+                Repository.checkout(args);
+                break;
+            case "branch":
+                Repository.checkWorkingDirectory();
+                MyUtils.validateOperands(args, 2);
+                Repository.branch(args[1]);
+                break;
+            case "rm-branch":
+                Repository.checkWorkingDirectory();
+                MyUtils.validateOperands(args, 2);
+                Repository.rmBranch(args[1]);
+                break;
+            case "reset":
+                Repository.checkWorkingDirectory();
+                MyUtils.validateOperands(args, 2);
+                Repository.reset(args[1]);
+                break;
+            case "merge":
+                Repository.checkWorkingDirectory();
+                MyUtils.validateOperands(args, 2);
+                Repository.merge(args[1]);
+                break;
             default:
                 MyUtils.exit("No command with that name exists.");
         }

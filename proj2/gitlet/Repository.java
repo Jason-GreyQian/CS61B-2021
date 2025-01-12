@@ -323,6 +323,117 @@ public class Repository {
         System.out.println();
     }
 
+    /**
+     * Checkout function.
+     * There are 3 usages:
+     * 1. java gitlet.Main checkout -- [file name]
+     * 2. java gitlet.Main checkout [commit id] -- [file name]
+     * 3. java gitlet.Main checkout [branch name]
+     */
+    public static void checkout(String[] args) {
+        if (args.length == 2) {
+            // checkout branch
+            checkoutBranch(args[1]);
+        } else if (args.length == 3 && args[1].equals("--")) {
+            //  checkout -- [file name]
+            checkoutFile(args[2]);
+        } else if (args.length == 4 && args[2].equals("--")) {
+            // checkout [commit id] -- [file name]
+            checkoutFile(args[3], args[1]);
+        } else {
+            MyUtils.exit("Incorrect operands.");
+        }
+    }
+
+    /**
+     * Creates a new branch with the given name, and points it at the current head commit.
+     * If a branch with the given name already exists, print the error message A branch with that name already exists.
+     */
+    public static void branch(String branchName) {
+        getInfoMaps();
+
+        if (branches.containsKey(branchName)) {
+            MyUtils.exit("A branch with that name already exists.");
+        }
+
+        String currentCommitID = getCurrentCommit();
+        branches.put(branchName, currentCommitID);
+
+        saveInfoMaps();
+    }
+
+    /**
+     * Rm the branch.
+     * Deletes the branch with the given name.
+     * it does not mean to delete all commits that were created under the branch, or anything like that.
+     * If a branch with the given name does not exist, aborts. Print the error message A branch with that name does not exist.
+     * If you try to remove the branch you’re currently on, aborts, printing the error message Cannot remove the current branch.
+     */
+    public static void rmBranch(String branchName) {
+        getInfoMaps();
+
+        if (!branches.containsKey(branchName)) {
+            MyUtils.exit("A branch with that name does not exist.");
+        }
+        String currentBranch = getCurrentBranch();
+        if (currentBranch.equals(branchName)) {
+            MyUtils.exit("Cannot remove the current branch.");
+        }
+        branches.remove(branchName);
+
+        saveInfoMaps();
+    }
+
+    /**
+     * Checks out all the files tracked by the given commit.
+     * Removes tracked files that are not present in that commit.
+     * clear the stage area
+     * update the HEAD
+     */
+    public static void reset(String commitID) {
+        getInfoMaps();
+
+        commitID = getFullCommitID(commitID);
+
+        String currentCommitID = getCurrentCommit();
+        String currentBranch = getCurrentBranch();
+        Commit currentCommit = Commit.getCommit(currentCommitID);
+        Commit resetCommit = Commit.getCommit(commitID);
+
+        // If a working file is untracked in the current branch and would be overwritten by the reset,
+        // print `There is an untracked file in the way; delete it, or add and commit it first.`
+        // TODO: NEED MODIFY?
+        checkUntrackedFile(commitID);
+
+        // Checks out all the files tracked by the given commit.
+        for (String fileName : resetCommit.getTrackedFilesMap().keySet()) {
+            checkoutFile(fileName, commitID);
+        }
+
+        // Removes tracked files that are not present in that commit.
+        Set<String> trackedFiles = new HashSet<>();
+        getTrackedFiles(trackedFiles);
+        for (String fileName : trackedFiles) {
+            if (resetCommit.getTrackedFilesMap().containsKey(fileName)) {
+                restrictedDelete(join(CWD, fileName));
+            }
+        }
+
+        // clear the stage area
+        stageAdd.clear();
+        stageRemoval.clear();
+        saveInfoMaps();
+
+        // update the HEAD
+        updateHEAD(currentBranch, commitID);
+    }
+
+    /**
+     * merge function.
+     */
+    public static void merge(String branchName) {
+        // TODO: NEED DO
+    }
 
     // ================================================================================================================
     // This below is the Helper function
@@ -454,6 +565,191 @@ public class Repository {
                 // added but not in the working space
                 deletedFiles.add(fileName);
             }
+        }
+    }
+
+    /**
+     * Checkout branches.
+     * 1. Takes all files in the commit at the head of the given branch, and puts them in the working directory,
+     * overwriting the versions of the files that are already there if they exist.
+     * 2. The given branch will now be considered the current branch (HEAD).
+     * 3. Any files that are tracked in the current branch but are not present in the checked-out branch are deleted.
+     * 4. The staging area is cleared
+     * Some spacial cases:
+     * If no branch with that name exists, print No such branch exists.
+     * If that branch is the current branch, print No need to checkout the current branch.
+     * If a working file is untracked in the current branch and would be overwritten by the checkout,
+     * print There is an untracked file in the way; delete it, or add and commit it first. and exit;
+     */
+    private static void checkoutBranch(String branch) {
+        getInfoMaps();
+        String currentBranch = getCurrentBranch();
+        String currentCommitID = getCurrentCommit();
+        Commit currentCommit = Commit.getCommit(currentCommitID);
+
+        if (!branches.containsKey(branch)) {
+            MyUtils.exit("No such branch exists.");
+        }
+
+        if (currentBranch.equals(branch)) {
+            MyUtils.exit("No need to checkout the current branch.");
+        }
+
+        // check weather the untracked file would been overwrite
+        // TODO: NEED TO SIMPLFY
+        Set<String> untrackedFiles = new HashSet<>();
+        getUntrackedFiles(untrackedFiles);
+        String checkoutCommitID = branches.get(branch);
+        Commit checkoutCommit = Commit.getCommit(checkoutCommitID);
+        for (String fileName : untrackedFiles) {
+            if (checkoutCommit.isTrackedFile(fileName)) {
+                // check weather would be overwrite
+                File file = join(CWD, fileName);
+                if (!checkoutCommit.isSameFile(fileName, file)) { // content is not same, can overwrite
+                    MyUtils.exit("There is an untracked file in the way; delete it, or add and commit it first.");
+                }
+            }
+        }
+
+        // Takes all files in the commit at the head of the given branch, and puts them in the working directory
+        List<String> workingSpace = Utils.plainFilenamesIn(CWD);
+        for (Map.Entry<String, String> entry : checkoutCommit.getTrackedFilesMap().entrySet()) {
+            String fileName = entry.getKey();
+            String fileHash = entry.getValue();
+            File file = join(CWD, fileName);
+            if (workingSpace.contains(fileName) && checkoutCommit.isSameFile(fileName, file)) {
+                // working space has the file and content is same don't need rewrite
+                continue;
+            } else {
+                // rewrite the file
+                MyUtils.createFile(file);
+                String content = readContentsAsString(join(BLOBS, fileHash));
+                writeContents(file, content);
+            }
+        }
+
+
+        // Any files that are tracked in the current branch but are not present in the checked-out branch are deleted.
+        for (String fileName : currentCommit.getTrackedFilesMap().keySet()) {
+            if (!checkoutCommit.isTrackedFile(fileName)) {
+                File file = join(CWD, fileName);
+                restrictedDelete(file);
+            }
+
+        }
+
+        // update the breach and commit
+        updateHEAD(branch, checkoutCommitID);
+
+        // clear the stageing area
+        stageAdd.clear();
+        stageRemoval.clear();
+        saveInfoMaps();
+
+    }
+
+    /**
+     * Checkout files.
+     * The commit is the current commit.
+     */
+    private static void checkoutFile(String fileName) {
+        String currentCommit = getCurrentCommit();
+        checkoutFile(fileName, currentCommit);
+    }
+
+    /**
+     * Checkout files to identify commit id version.
+     * TODO: Commit id may less than 40 letters ？
+     * Takes the version of the file as it exists in the commit id and puts it in the working directory,
+     * overwriting the version of the file that’s already there if there is one.
+     * The new version of the file is not staged.
+     */
+    private static void checkoutFile(String fileName, String commitID) {
+
+        commitID = getFullCommitID(commitID);
+
+        Commit commit = Commit.getCommit(commitID);
+        // TODO: IS NO NEED?
+//        if (commit == null) {
+//            MyUtils.exit("No commit with that id exists.");
+//        }
+
+        // get the file's content in the commit
+        File file = join(BLOBS, commit.getFileHash(fileName));
+        String content = readContentsAsString(file);
+
+        // rewrite the content
+        File workingSpaceFile = join(CWD, fileName);
+        MyUtils.createFile(workingSpaceFile);
+        writeContents(workingSpaceFile, content);
+    }
+
+    /**
+     * Get the untracked files.
+     * Untracked files : exist in working space but not add and not commit(include the rm files)
+     */
+    private static void getUntrackedFiles(Set<String> untrackedFiles) {
+        List<String> workingSpace = Utils.plainFilenamesIn(CWD);
+        Commit commit = Commit.getCommit(getCurrentCommit());
+
+        for (String fileName : workingSpace) {
+            if (!stageAdd.containsKey(fileName) && !commit.isTrackedFile(fileName)) {
+                untrackedFiles.add(fileName);
+            }
+        }
+    }
+
+    /**
+     * Get the real CommitID.
+     */
+    private static String getFullCommitID(String commitID) {
+        int length = commitID.length();
+        if (length == 40) {
+            return commitID;
+        }
+        List<String> commitsID = plainFilenamesIn(commitID);
+        List<String> fullCommitIDs = new ArrayList<>();
+        for (String id : commitsID) {
+            if (id.substring(0, length).equals(commitID)) {
+                fullCommitIDs.add(id);
+            }
+        }
+        if (fullCommitIDs.size() == 0) {
+            MyUtils.exit("No commit with that id exists.");
+        } else if (fullCommitIDs.size() > 1) {
+            MyUtils.exit("Multiple commits with that id exists.");
+        }
+        return fullCommitIDs.get(0);
+    }
+
+    /**
+     * Check untracked files.
+     */
+    private static void checkUntrackedFile(String checkoutCommitID) {
+        Set<String> untrackedFiles = new HashSet<>();
+        getUntrackedFiles(untrackedFiles);
+        Commit checkoutCommit = Commit.getCommit(checkoutCommitID);
+        for (String fileName : untrackedFiles) {
+            if (checkoutCommit.isTrackedFile(fileName)) {
+                // check weather would be overwrite
+                File file = join(CWD, fileName);
+                if (!checkoutCommit.isSameFile(fileName, file)) { // content is not same, can overwrite
+                    MyUtils.exit("There is an untracked file in the way; delete it, or add and commit it first.");
+                }
+            }
+        }
+    }
+
+    /**
+     * Get the tracked files.
+     */
+    private static void getTrackedFiles(Set<String> trackedFiles) {
+        Commit commit = Commit.getCommit(getCurrentCommit());
+        for (String fileName : commit.getTrackedFilesMap().keySet()) {
+            trackedFiles.add(fileName);
+        }
+        for (String fileName : stageAdd.keySet()) {
+            trackedFiles.add(fileName);
         }
     }
 

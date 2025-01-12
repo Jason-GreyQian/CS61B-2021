@@ -46,7 +46,7 @@ public class MyUtils {
         String hash = sha1(content);
         File blobFile = join(Repository.BLOBS, hash);
         createFile(blobFile);
-        writeContents(file, content);
+        writeContents(blobFile, content);
         return hash;
     }
 

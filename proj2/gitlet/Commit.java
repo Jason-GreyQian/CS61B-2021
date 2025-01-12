@@ -181,4 +181,12 @@ public class Commit implements Serializable {
         return formatter.format(timestamp);
     }
 
+    /** Get the file hash given its name, if the file doesn't exist in this commit print error message. */
+    public String getFileHash(String fileName) {
+        if (!trackedMaps.containsKey(fileName)) {
+            MyUtils.exit("File does not exist in that commit.");
+        }
+        return trackedMaps.get(fileName);
+    }
+
 }
