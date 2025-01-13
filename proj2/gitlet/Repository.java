@@ -5,7 +5,6 @@ import java.util.*;
 
 import static gitlet.Utils.*;
 
-// TODO: any imports you need here
 
 /**
  * Represents a gitlet repository.
@@ -143,7 +142,8 @@ public class Repository {
 
     /**
      * Saves a snapshot of tracked files in the current commit and staging area so they can be restored at a later time
-     * Create a new commit, By default, each commit’s snapshot of files will as same as its parent commit’s snapshot of files;
+     * Create a new commit, By default, each commit’s snapshot of files will
+     * as same as its parent commit’s snapshot of files;
      * Update the stage add area to the commit
      * Untrack the file which is been stage removal
      * Special case:
@@ -180,9 +180,10 @@ public class Repository {
     /**
      * Unstage the file.
      * if file is currently staged for addition unstaged it
-     * If the file is tracked in the current commit, stage it for removal and remove the file from the working directory
+     * If the file is tracked in the current commit,stage it for removal and remove the file from the working directory
      * if the user has not already done so (do not remove it unless it is tracked in the current commit).
-     * If the file is neither staged nor tracked by the head commit, print the error message No reason to remove the file.
+     * If the file is neither staged nor tracked by the head commit,
+     * print the error message No reason to remove the file.
      *
      * @param fileName
      */
@@ -195,7 +196,6 @@ public class Repository {
         // if file is currently staged for addition unstaged it
         if (stageAdd.containsKey(fileName)) {               // if file is currently staged for addition unstaged it
             stageAdd.remove(fileName);
-            return;
         } else if (currentCommit.isTrackedFile(fileName)) { // If the file is tracked in the current commit
             File file = join(CWD, fileName);
             // stage if for removal
@@ -212,7 +212,8 @@ public class Repository {
     }
 
     /**
-     * Starting at the current head commit, display information about each commit backwards along the commit tree until the initial commit.
+     * Starting at the current head commit, display information about each commit backwards
+     * along the commit tree until the initial commit.
      */
     public static void log() {
         String commitID = getCurrentCommit();
@@ -390,34 +391,43 @@ public class Repository {
      * clear the stage area
      * update the HEAD
      */
-    public static void reset(String commitID) {
+    public static void reset(String resetCommitID) {
         getInfoMaps();
 
-        commitID = getFullCommitID(commitID);
+        resetCommitID = getFullCommitID(resetCommitID);
+        List<String> commitsID = Utils.plainFilenamesIn(COMMITS);
+        if (!commitsID.contains(resetCommitID)) {
+            MyUtils.exit("No commit with that id exists.");
+        }
+
 
         String currentCommitID = getCurrentCommit();
         String currentBranch = getCurrentBranch();
-        Commit currentCommit = Commit.getCommit(currentCommitID);
-        Commit resetCommit = Commit.getCommit(commitID);
+        // Commit currentCommit = Commit.getCommit(currentCommitID);
+        // Commit resetCommit = Commit.getCommit(resetCommitID);
 
-        // If a working file is untracked in the current branch and would be overwritten by the reset,
-        // print `There is an untracked file in the way; delete it, or add and commit it first.`
-        // TODO: NEED MODIFY?
-        checkUntrackedFile(commitID);
+        checkUntrackedFile(resetCommitID);
 
-        // Checks out all the files tracked by the given commit.
-        for (String fileName : resetCommit.getTrackedFilesMap().keySet()) {
-            checkoutFile(fileName, commitID);
-        }
+        checkoutCommit(currentCommitID, resetCommitID);
 
-        // Removes tracked files that are not present in that commit.
-        Set<String> trackedFiles = new HashSet<>();
-        getTrackedFiles(trackedFiles);
-        for (String fileName : trackedFiles) {
-            if (resetCommit.getTrackedFilesMap().containsKey(fileName)) {
-                restrictedDelete(join(CWD, fileName));
-            }
-        }
+//        // If a working file is untracked in the current branch and would be overwritten by the reset,
+//        // print `There is an untracked file in the way; delete it, or add and commit it first.`
+//        // TODO: NEED MODIFY?
+//        checkUntrackedFile(commitID);
+//
+//        // Checks out all the files tracked by the given commit.
+//        for (String fileName : resetCommit.getTrackedFilesMap().keySet()) {
+//            checkoutFile(fileName, commitID);
+//        }
+//
+//        // Removes tracked files that are not present in that commit.
+//        Set<String> trackedFiles = getTrackedFiles();
+//        for (String fileName : trackedFiles) {
+//            if (resetCommit.getTrackedFilesMap().containsKey(fileName)) {
+//                restrictedDelete(join(CWD, fileName));
+//            }
+//        }
+
 
         // clear the stage area
         stageAdd.clear();
@@ -425,14 +435,49 @@ public class Repository {
         saveInfoMaps();
 
         // update the HEAD
-        updateHEAD(currentBranch, commitID);
+        updateHEAD(currentBranch, resetCommitID);
     }
 
     /**
      * merge function.
+     * Processing steps:
+     * 1.
+     * <p>
+     * Special cases not need merge.
+     * 1.If the split point is the same commit as the given branch, then we do nothing; the merge is complete,
+     * and the operation ends with the message Given branch is an ancestor of the current branch.
+     * 2.If the split point is the current branch, then the effect is to check out the given branch,
+     * and the operation ends after printing the message Current branch fast-forwarded.
+     * <p>
+     * Failure cases:
      */
     public static void merge(String branchName) {
         // TODO: NEED DO
+        getInfoMaps();
+
+        String currentCommitID = getCurrentCommit();
+        String mergedBranchCommitID = branches.get(branchName);
+
+        String splitPoint = getSplitPoint(branchName);
+        if (splitPoint.equals(mergedBranchCommitID)) {
+            // do nothing
+            MyUtils.exit("Given branch is an ancestor of the current branch.");
+
+        }
+        if (splitPoint.equals(currentCommitID)) {
+            MyUtils.exit("Current branch fast-forwarded.");
+        }
+
+        // 处理逻辑
+
+        // 给定分支修改了，但是当前分支没有修改过的文件需要更改给定分支的版本，并且add
+        // 给定两个commit， commit1修改过commit2的文件集合（修改包括了删除或者修改内容）
+        // 给定两个commit， commit1没有修改过commit2的文件集合
+        // commit1 不存在但是commit2存在
+        // 获得未被修改的文件, 给定两个commit
+        // untrackfile 被重写需要报错的辅助函数
+
+
     }
 
     // ================================================================================================================
@@ -585,7 +630,7 @@ public class Repository {
         getInfoMaps();
         String currentBranch = getCurrentBranch();
         String currentCommitID = getCurrentCommit();
-        Commit currentCommit = Commit.getCommit(currentCommitID);
+        //Commit currentCommit = Commit.getCommit(currentCommitID);
 
         if (!branches.containsKey(branch)) {
             MyUtils.exit("No such branch exists.");
@@ -597,46 +642,51 @@ public class Repository {
 
         // check weather the untracked file would been overwrite
         // TODO: NEED TO SIMPLFY
-        Set<String> untrackedFiles = new HashSet<>();
-        getUntrackedFiles(untrackedFiles);
+//        Set<String> untrackedFiles = new HashSet<>();
+//        getUntrackedFiles(untrackedFiles);
+//        String checkoutCommitID = branches.get(branch);
+//        Commit checkoutCommit = Commit.getCommit(checkoutCommitID);
+//        for (String fileName : untrackedFiles) {
+//            if (checkoutCommit.isTrackedFile(fileName)) {
+//                // check weather would be overwrite
+//                File file = join(CWD, fileName);
+//                if (!checkoutCommit.isSameFile(fileName, file)) { // content is not same, can overwrite
+//                    MyUtils.exit("There is an untracked file in the way; delete it, or add and commit it first.");
+//                }
+//            }
+//        }
         String checkoutCommitID = branches.get(branch);
-        Commit checkoutCommit = Commit.getCommit(checkoutCommitID);
-        for (String fileName : untrackedFiles) {
-            if (checkoutCommit.isTrackedFile(fileName)) {
-                // check weather would be overwrite
-                File file = join(CWD, fileName);
-                if (!checkoutCommit.isSameFile(fileName, file)) { // content is not same, can overwrite
-                    MyUtils.exit("There is an untracked file in the way; delete it, or add and commit it first.");
-                }
-            }
-        }
+        //Commit checkoutCommit = Commit.getCommit(checkoutCommitID);
+        checkUntrackedFile(checkoutCommitID);
 
+        // TODO: this change is right?
         // Takes all files in the commit at the head of the given branch, and puts them in the working directory
-        List<String> workingSpace = Utils.plainFilenamesIn(CWD);
-        for (Map.Entry<String, String> entry : checkoutCommit.getTrackedFilesMap().entrySet()) {
-            String fileName = entry.getKey();
-            String fileHash = entry.getValue();
-            File file = join(CWD, fileName);
-            if (workingSpace.contains(fileName) && checkoutCommit.isSameFile(fileName, file)) {
-                // working space has the file and content is same don't need rewrite
-                continue;
-            } else {
-                // rewrite the file
-                MyUtils.createFile(file);
-                String content = readContentsAsString(join(BLOBS, fileHash));
-                writeContents(file, content);
-            }
-        }
-
-
-        // Any files that are tracked in the current branch but are not present in the checked-out branch are deleted.
-        for (String fileName : currentCommit.getTrackedFilesMap().keySet()) {
-            if (!checkoutCommit.isTrackedFile(fileName)) {
-                File file = join(CWD, fileName);
-                restrictedDelete(file);
-            }
-
-        }
+//        List<String> workingSpace = Utils.plainFilenamesIn(CWD);
+//        for (Map.Entry<String, String> entry : checkoutCommit.getTrackedFilesMap().entrySet()) {
+//            String fileName = entry.getKey();
+//            String fileHash = entry.getValue();
+//            File file = join(CWD, fileName);
+//            if (workingSpace.contains(fileName) && checkoutCommit.isSameFile(fileName, file)) {
+//                // working space has the file and content is same don't need rewrite
+//                continue;
+//            } else {
+//                // rewrite the file
+//                MyUtils.createFile(file);
+//                String content = readContentsAsString(join(BLOBS, fileHash));
+//                writeContents(file, content);
+//            }
+//        }
+//
+//
+//        // Any files that are tracked in the current branch but are not present in the checked-out branch are deleted.
+//        for (String fileName : currentCommit.getTrackedFilesMap().keySet()) {
+//            if (!checkoutCommit.isTrackedFile(fileName)) {
+//                File file = join(CWD, fileName);
+//                restrictedDelete(file);
+//            }
+//
+//        }
+        checkoutCommit(currentCommitID, checkoutCommitID);
 
         // update the breach and commit
         updateHEAD(branch, checkoutCommitID);
@@ -646,6 +696,28 @@ public class Repository {
         stageRemoval.clear();
         saveInfoMaps();
 
+    }
+
+    /**
+     * Takes all files in the given commit, and puts them in the working directory,
+     * overwriting the versions of the files that are already there if they exist.
+     * Any files that are tracked in the current commit but are not present in the checked-out branch are deleted.
+     */
+    private static void checkoutCommit(String currentCommitID, String checkoutCommitID) {
+        Commit checkoutCommit = Commit.getCommit(checkoutCommitID);
+        Commit currentCommit = Commit.getCommit(currentCommitID);
+
+        for (String fileName : checkoutCommit.getTrackedFilesMap().keySet()) {
+            checkoutFile(fileName, checkoutCommitID);
+        }
+
+        for (String fileName : currentCommit.getTrackedFilesMap().keySet()) {
+            if (!checkoutCommit.isTrackedFile(fileName)) {
+                File file = join(CWD, fileName);
+                restrictedDelete(file);
+            }
+
+        }
     }
 
     /**
@@ -669,10 +741,10 @@ public class Repository {
         commitID = getFullCommitID(commitID);
 
         Commit commit = Commit.getCommit(commitID);
-        // TODO: IS NO NEED?
-//        if (commit == null) {
-//            MyUtils.exit("No commit with that id exists.");
-//        }
+
+        if (commit == null) {
+            MyUtils.exit("No commit with that id exists.");
+        }
 
         // get the file's content in the commit
         File file = join(BLOBS, commit.getFileHash(fileName));
@@ -680,6 +752,11 @@ public class Repository {
 
         // rewrite the content
         File workingSpaceFile = join(CWD, fileName);
+        // todo: add this is right?
+        // if the content is same no need to rewrite
+        if (workingSpaceFile.exists() && commit.isSameFile(fileName, workingSpaceFile)) {
+            return;
+        }
         MyUtils.createFile(workingSpaceFile);
         writeContents(workingSpaceFile, content);
     }
@@ -688,26 +765,51 @@ public class Repository {
      * Get the untracked files.
      * Untracked files : exist in working space but not add and not commit(include the rm files)
      */
-    private static void getUntrackedFiles(Set<String> untrackedFiles) {
+    private static Set<String> getUntrackedFiles() {
         List<String> workingSpace = Utils.plainFilenamesIn(CWD);
         Commit commit = Commit.getCommit(getCurrentCommit());
+        Set<String> untrackedFiles = new HashSet<>();
 
         for (String fileName : workingSpace) {
             if (!stageAdd.containsKey(fileName) && !commit.isTrackedFile(fileName)) {
                 untrackedFiles.add(fileName);
             }
         }
+        return untrackedFiles;
     }
 
     /**
-     * Get the real CommitID.
+     * Get the tracked files.
+     * The tracked file is the file been added or commited in the working dir
+     * The rm will remove the file in working space and add it to stage_removal
+     * So tracked file = add + commit - stage_removal's file
+     * or tracked file = working space's file which been added or been commited
+     */
+    private static Set<String> getTrackedFiles() {
+        Set<String> trackedFiles = new HashSet<>();
+        Commit commit = Commit.getCommit(getCurrentCommit());
+        for (String fileName : commit.getTrackedFilesMap().keySet()) {
+            trackedFiles.add(fileName);
+        }
+        for (String fileName : stageAdd.keySet()) {
+            trackedFiles.add(fileName);
+        }
+        for (String fileName : stageRemoval) {
+            trackedFiles.remove(fileName);
+        }
+        return trackedFiles;
+    }
+
+    /**
+     * Get the full CommitID given a short commitID.
+     * If there are not just one exist, just return the first commit id match in the COMMITS folder.
      */
     private static String getFullCommitID(String commitID) {
         int length = commitID.length();
         if (length == 40) {
             return commitID;
         }
-        List<String> commitsID = plainFilenamesIn(commitID);
+        List<String> commitsID = plainFilenamesIn(COMMITS);
         List<String> fullCommitIDs = new ArrayList<>();
         for (String id : commitsID) {
             if (id.substring(0, length).equals(commitID)) {
@@ -723,11 +825,11 @@ public class Repository {
     }
 
     /**
-     * Check untracked files.
+     * Check untracked files weather can be overwrite, if done so
+     * print There is an untracked file in the way; delete it, or add and commit it first.
      */
     private static void checkUntrackedFile(String checkoutCommitID) {
-        Set<String> untrackedFiles = new HashSet<>();
-        getUntrackedFiles(untrackedFiles);
+        Set<String> untrackedFiles = getUntrackedFiles();
         Commit checkoutCommit = Commit.getCommit(checkoutCommitID);
         for (String fileName : untrackedFiles) {
             if (checkoutCommit.isTrackedFile(fileName)) {
@@ -740,17 +842,36 @@ public class Repository {
         }
     }
 
+
     /**
-     * Get the tracked files.
+     * Get Split point commit.
      */
-    private static void getTrackedFiles(Set<String> trackedFiles) {
-        Commit commit = Commit.getCommit(getCurrentCommit());
-        for (String fileName : commit.getTrackedFilesMap().keySet()) {
-            trackedFiles.add(fileName);
+    private static String getSplitPoint(String branchName) {
+        String currentCommitID = getCurrentCommit();
+        Commit currentBranchCommit = Commit.getCommit(currentCommitID);
+        Set<String> currentBranchCommitSet = new HashSet<>();
+        currentBranchCommitSet.add(currentCommitID);
+
+        while (!currentBranchCommit.isInitCommit()) {
+            String parentID = currentBranchCommit.getDirectParentID();
+            currentBranchCommitSet.add(parentID);
+            currentBranchCommit = Commit.getCommit(parentID);
         }
-        for (String fileName : stageAdd.keySet()) {
-            trackedFiles.add(fileName);
+
+        String splitPoint;
+        String otherBranchCommitID = branches.get(branchName);
+        // Commit commit = Commit.getCommit(branches.get(branchName));
+        while (true) {
+            Commit commit = Commit.getCommit(otherBranchCommitID);
+            if (currentBranchCommitSet.contains(otherBranchCommitID) || commit.isInitCommit()) {
+                splitPoint = otherBranchCommitID;
+                break;
+            }
+            otherBranchCommitID = commit.getDirectParentID();
         }
+
+
+        return splitPoint;
     }
 
 }

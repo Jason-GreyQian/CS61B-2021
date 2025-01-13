@@ -50,6 +50,7 @@ public class Main {
                 MyUtils.validateOperands(args, 2);
                 Repository.checkWorkingDirectory();
                 Repository.find(args[1]);
+                break;
             case "status":
                 MyUtils.validateOperands(args, 1);
                 Repository.checkWorkingDirectory();

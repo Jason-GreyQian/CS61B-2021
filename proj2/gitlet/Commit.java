@@ -189,4 +189,9 @@ public class Commit implements Serializable {
         return trackedMaps.get(fileName);
     }
 
+    /** Check the current commit weather is the initial commit. */
+    public boolean isInitCommit() {
+        return directParentID.equals(FIRSTCOMMITPID);
+    }
+
 }
