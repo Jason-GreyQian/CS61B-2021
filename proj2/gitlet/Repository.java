@@ -403,35 +403,15 @@ public class Repository {
 
         String currentCommitID = getCurrentCommit();
         String currentBranch = getCurrentBranch();
-        // Commit currentCommit = Commit.getCommit(currentCommitID);
-        // Commit resetCommit = Commit.getCommit(resetCommitID);
 
         checkUntrackedFile(resetCommitID);
 
         checkoutCommit(currentCommitID, resetCommitID);
 
-//        // If a working file is untracked in the current branch and would be overwritten by the reset,
-//        // print `There is an untracked file in the way; delete it, or add and commit it first.`
-//        // TODO: NEED MODIFY?
-//        checkUntrackedFile(commitID);
-//
-//        // Checks out all the files tracked by the given commit.
-//        for (String fileName : resetCommit.getTrackedFilesMap().keySet()) {
-//            checkoutFile(fileName, commitID);
-//        }
-//
-//        // Removes tracked files that are not present in that commit.
-//        Set<String> trackedFiles = getTrackedFiles();
-//        for (String fileName : trackedFiles) {
-//            if (resetCommit.getTrackedFilesMap().containsKey(fileName)) {
-//                restrictedDelete(join(CWD, fileName));
-//            }
-//        }
-
-
         // clear the stage area
         stageAdd.clear();
         stageRemoval.clear();
+        branches.put(currentBranch, resetCommitID);
         saveInfoMaps();
 
         // update the HEAD
