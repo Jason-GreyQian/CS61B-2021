@@ -79,24 +79,56 @@ public class Commit implements Serializable {
         return message;
     }
 
-    /** Get the Tracked File maps. */
+    /**
+     * Get the Tracked File maps.
+     */
     public Map<String, String> getTrackedFilesMap() {
         return trackedMaps;
     }
 
-    /** Set the second parent id. */
+    /**
+     * Set the second parent id.
+     */
     public void setOtherParentID(String otherParentID) {
         this.otherParentID = otherParentID;
     }
 
-    /** Get all parents. */
-    public Set<String> getAllParentIDs() {
-        Set<String> parentIDs = new HashSet<>();
-        if (otherParentID != null) {
-            parentIDs.add(otherParentID);
+    /**
+     * Get all parents commits, alone the commit tree, not include itself.
+     */
+    public Queue<String> getAllCommitsIDs(String selfCommitID) {
+        Queue<String> commitsIDs = new LinkedList<>();
+        Queue<String> commitsIDQueue = new LinkedList<>();
+        commitsIDQueue.add(selfCommitID);
+        while (!commitsIDQueue.isEmpty()) {
+            String commitID = commitsIDQueue.poll();
+            if (!commitID.equals(FIRSTCOMMITPID)) {
+                if (!commitsIDs.contains(commitID)) {
+                    commitsIDs.add(commitID);
+                }
+                Commit newCommit = getCommit(commitID);
+                if (newCommit != null) {
+                    Set<String> ids = newCommit.getAllParentsIDs();
+                    for (String id : ids) {
+                        commitsIDQueue.add(id);
+                    }
+                }
+            }
         }
-        parentIDs.add(directParentID);
-        return parentIDs;
+
+        return commitsIDs;
+    }
+
+    /**
+     * Get all parents id.
+     */
+    private Set<String> getAllParentsIDs() {
+        Set<String> parentsIDs = new HashSet<>();
+        parentsIDs.add(directParentID);
+        if (otherParentID != null) {
+            parentsIDs.add(otherParentID);
+        }
+        return parentsIDs;
     }
 
     // Some useful function
@@ -166,7 +198,8 @@ public class Commit implements Serializable {
      * The format is as below.
      * ===
      * commit 3e8bf1d794ca2e9ef8a4007275acf3751c7170ff(this is commitID)
-     * Merge: 4975af1(first parent's 7th commitID) 2c1ead1(second parent's 7th commitID) if just has one parent delete this line
+     * Merge: 4975af1(first parent's 7th commitID) 2c1ead1(second parent's 7th commitID)
+     * if just has one parent delete this line
      * Date: Sat Nov 11 12:30:00 2017 -0800
      * Merged development into master. (commit log)
      */
@@ -196,7 +229,9 @@ public class Commit implements Serializable {
         return formatter.format(timestamp);
     }
 
-    /** Get the file hash given its name, if the file doesn't exist in this commit print error message. */
+    /**
+     * Get the file hash given its name, if the file doesn't exist in this commit print error message.
+     */
     public String getFileHash(String fileName) {
         if (!trackedMaps.containsKey(fileName)) {
             MyUtils.exit("File does not exist in that commit.");
@@ -204,7 +239,9 @@ public class Commit implements Serializable {
         return trackedMaps.get(fileName);
     }
 
-    /** Check the current commit weather is the initial commit. */
+    /**
+     * Check the current commit weather is the initial commit.
+     */
     public boolean isInitCommit() {
         return directParentID.equals(FIRSTCOMMITPID);
     }

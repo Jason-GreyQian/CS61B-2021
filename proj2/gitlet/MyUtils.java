@@ -8,14 +8,16 @@ import static gitlet.Utils.*;
 
 public class MyUtils {
     /**
-     *  Print the error message and exit with code 0.
+     * Print the error message and exit with code 0.
      */
     public static void exit(String log) {
         System.out.println(log);
         System.exit(0);
     }
 
-    /** Check the opratations weather has the correct operands. */
+    /**
+     * Check the opratations weather has the correct operands.
+     */
     public static void validateOperands(String[] args, int operandsNumber) {
         if (args.length != operandsNumber) {
             System.out.println("Incorrect operands.");
@@ -23,7 +25,9 @@ public class MyUtils {
         }
     }
 
-    /** Help to create files easyly. */
+    /**
+     * Help to create files easyly.
+     */
     public static void createFile(File file) {
         if (!file.exists()) {
             try {
@@ -34,13 +38,17 @@ public class MyUtils {
         }
     }
 
-    /** Get the file's sha1 hashcode based it's content. */
+    /**
+     * Get the file's sha1 hashcode based it's content.
+     */
     public static String getFileHash(File file) {
         byte[] content = readContents(file);
         return sha1(content);
     }
 
-    /** Save the blobs files, and return its hashcode. */
+    /**
+     * Save the blobs files, and return its hashcode.
+     */
     public static String saveBlobFile(File file) {
         byte[] content = readContents(file);
         String hash = sha1(content);
@@ -50,7 +58,9 @@ public class MyUtils {
         return hash;
     }
 
-    /** Helper function for iterator the set and print its content. */
+    /**
+     * Helper function for iterator the set and print its content.
+     */
     public static void printFiles(Set<String> files, String prefix) {
         for (String file : files) {
             System.out.println(file + prefix);
