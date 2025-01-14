@@ -447,7 +447,7 @@ public class Repository {
         if (!branches.containsKey(branchName)) {
             MyUtils.exit("A branch with that name does not exist.");
         }
-        if (branches.equals(getCurrentBranch())) {
+        if (branchName.equals(getCurrentBranch())) {
             MyUtils.exit("Cannot merge a branch with itself.");
         }
 
@@ -486,8 +486,8 @@ public class Repository {
                 givenAdded, givenRemoved, givenChanged);
 
         // 给定分支修改了，但是当前分支没有修改过的文件需要更改给定分支的版本，并且add
-        // given branch modified(has different content), but current branch doesn't modified,
-        // checked out from the commit at the front of the given branch, stage it
+        // 1.given branch changed content, but current branch doesn't modified,
+        // checked out from the commit at the front of the given branch version, stage it
         for (String fileName : givenChanged) {
             if (currentUnModified.contains(fileName)) {
                 checkoutFile(fileName, givenBranchCommitID);
@@ -496,41 +496,50 @@ public class Repository {
         }
 
         // 在当前分支中修改过但在给定分支中没有修改的文件，这些文件将保持不变，保留当前分支的内容。
-        // Any files that have been modified in the current branch but not in the given branch
+        // 2.current branch changed content but given branch unmodified, stay it
 
         // 在当前分支和给定分支中修改相同文件的内容，且修改方式相同（例如都修改了内容或者都删除了文件），这些文件在合并时将不会被修改，保持当前的状态。
-
+        // 3.both modified and the way modified is same, stay it
 
         // 在分叉点时不存在的文件，且只在当前分支中存在的文件，这些文件保持不变。
+        // 4.the current branch added, and not in the given branch
 
         // 在分叉点时不存在的文件，且只在给定分支中存在的文件，这些文件将被检出并加入暂存区。
+        // 5.given branch added, but not in current branch, checkout it, and stage it
         for (String fileName : givenAdded) {
             if (!currentCommit.isTrackedFile(fileName)) {
                 checkoutFile(fileName, givenBranchCommitID);
                 stageAdd.put(fileName, givenCommit.getFileHash(fileName));
+                saveInfoMaps();
             }
         }
 
         // 在分叉点时存在但未被当前分支修改的文件，在给定分支中缺失的文件，这些文件将被删除，并且不再被跟踪。
-        for (String fileName : currentUnModified) {
-            if (!givenCommit.isTrackedFile(fileName)) {
+        // 6.given branch deleted, and the file is unmodified in current branch, delete it and untracked
+        for (String fileName : givenRemoved) {
+            if (currentUnModified.contains(fileName)) {
+                // this will overwrite the stageAdd funtion
                 rm(fileName);
             }
         }
 
         // 在分叉点时存在但未被给定分支修改的文件，在当前分支中缺失的文件，这些文件将保持缺失状态。
+        // 7.given branch unmodified but current branch deleted, stay deleted
 
+        //8.Conflict
         //如果当前分支和给定分支对同一文件做出了不同的修改（即修改方式不同），则发生冲突
         //a. 两个分支对同一个文件内容的修改不同。
         //b. 一个分支修改了文件，而另一个分支删除了该文件。
         //c. 文件在分叉点时不存在，但当前分支和给定分支都有不同的内容。
         Set<String> conflictFiles = new HashSet<>();
         for (String fileName : currentChanged) {
+            // 8.a both changed and content is not same
             if (givenChanged.contains(fileName)) {
                 if (!givenCommit.getFileHash(fileName).equals(currentCommit.getFileHash(fileName))) {
                     conflictFiles.add(fileName);
                 }
             }
+            // 8.b changed and other branch removed
             if (givenRemoved.contains(fileName)) {
                 conflictFiles.add(fileName);
             }
@@ -545,6 +554,7 @@ public class Repository {
                 conflictFiles.add(fileName);
             }
         }
+        // 8.3 both added and content is not same.
         for (String fileName : givenAdded) {
             if (currentAdded.contains(fileName)) {
                 if (!givenCommit.getFileHash(fileName).equals(currentCommit.getFileHash(fileName))) {
@@ -553,10 +563,12 @@ public class Repository {
             }
         }
 
+        saveInfoMaps();
+
         // replace the content files content
         replaceConflictsContents(conflictFiles, currentCommit, givenCommit);
         if (!conflictFiles.isEmpty()) {
-            MyUtils.exit("Encountered a merge conflict.");
+            System.out.println("Encountered a merge conflict.");
         }
         String message = "Merged " + branchName + " into " + getCurrentBranch() + ".";
         commit(message);
@@ -949,6 +961,7 @@ public class Repository {
 
     /** Replace the conflict content files. */
     private static void replaceConflictsContents(Set<String> conflicts, Commit currentCommit, Commit givenCommit) {
+        getInfoMaps();
         for (String fileName : conflicts) {
             String currentContent = getContentOfFile(currentCommit, fileName);
             String givenContent = getContentOfFile(givenCommit, fileName);
@@ -961,6 +974,7 @@ public class Repository {
             MyUtils.saveBlobFile(file);
             stageAdd.put(fileName, fileHash);
         }
+        saveInfoMaps();
 
     }
 

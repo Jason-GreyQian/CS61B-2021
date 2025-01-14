@@ -89,6 +89,16 @@ public class Commit implements Serializable {
         this.otherParentID = otherParentID;
     }
 
+    /** Get all parents. */
+    public Set<String> getAllParentIDs() {
+        Set<String> parentIDs = new HashSet<>();
+        if (otherParentID != null) {
+            parentIDs.add(otherParentID);
+        }
+        parentIDs.add(directParentID);
+        return parentIDs;
+    }
+
     // Some useful function
 
     /**
