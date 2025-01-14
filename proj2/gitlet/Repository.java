@@ -421,7 +421,8 @@ public class Repository {
     /**
      * merge function.
      * Processing steps:
-     * 1.
+     * 1.Any files that have been modified in the given branch since the split point, but not modified in the current branch since the split point should be changed to their versions in the given branch (checked out from the commit at the front of the given branch). These files should then all be automatically staged.
+     * 2.Any files that have been modified in the current branch but not in the given branch since the split point should stay as they are.
      * <p>
      * Special cases not need merge.
      * 1.If the split point is the same commit as the given branch, then we do nothing; the merge is complete,
@@ -430,16 +431,36 @@ public class Repository {
      * and the operation ends after printing the message Current branch fast-forwarded.
      * <p>
      * Failure cases:
+     * 1.If there are staged additions or removals present, print the error message You have uncommitted changes.
+     * 2.If a branch with the given name does not exist, print the error message A branch with that name does not exist.
+     * 3.If attempting to merge a branch with itself, print the error message Cannot merge a branch with itself.
+     * 4.If an untracked file in the current commit would be overwritten or deleted by the merge,
+     * print There is an untracked file in the way; delete it, or add and commit it first. and exit;
      */
     public static void merge(String branchName) {
-        // TODO: NEED DO
         getInfoMaps();
 
-        String currentCommitID = getCurrentCommit();
-        String mergedBranchCommitID = branches.get(branchName);
+        // Failure cases
+        if (!stageAdd.isEmpty() || !stageRemoval.isEmpty()) {
+            MyUtils.exit("You have uncommitted changes.");
+        }
+        if (!branches.containsKey(branchName)) {
+            MyUtils.exit("A branch with that name does not exist.");
+        }
+        if (branches.equals(getCurrentBranch())) {
+            MyUtils.exit("Cannot merge a branch with itself.");
+        }
 
+        String currentCommitID = getCurrentCommit();
+        String givenBranchCommitID = branches.get(branchName);
+        Commit currentCommit = Commit.getCommit(currentCommitID);
+        Commit givenCommit = Commit.getCommit(givenBranchCommitID);
+        checkUntrackedFile(givenBranchCommitID);
+
+        // Special case not need merge
         String splitPoint = getSplitPoint(branchName);
-        if (splitPoint.equals(mergedBranchCommitID)) {
+        Commit splitCommit = Commit.getCommit(splitPoint);
+        if (splitPoint.equals(givenBranchCommitID)) {
             // do nothing
             MyUtils.exit("Given branch is an ancestor of the current branch.");
 
@@ -448,15 +469,99 @@ public class Repository {
             MyUtils.exit("Current branch fast-forwarded.");
         }
 
-        // 处理逻辑
+        // Merge steps:
+        Set<String> currentModified = new HashSet<>();
+        Set<String> givenModified = new HashSet<>();
+        Set<String> currentAdded = new HashSet<>();
+        Set<String> givenAdded = new HashSet<>();
+        Set<String> currentRemoved = new HashSet<>();
+        Set<String> givenRemoved = new HashSet<>();
+        Set<String> currentChanged = new HashSet<>();
+        Set<String> givenChanged = new HashSet<>();
+        Set<String> currentUnModified = new HashSet<>();
+        Set<String> givenUnModified = new HashSet<>();
+        splitModified(splitCommit, currentCommit, currentModified, currentUnModified,
+                currentAdded, currentRemoved, currentChanged);
+        splitModified(splitCommit, givenCommit, givenModified, givenUnModified,
+                givenAdded, givenRemoved, givenChanged);
 
         // 给定分支修改了，但是当前分支没有修改过的文件需要更改给定分支的版本，并且add
-        // 给定两个commit， commit1修改过commit2的文件集合（修改包括了删除或者修改内容）
-        // 给定两个commit， commit1没有修改过commit2的文件集合
-        // commit1 不存在但是commit2存在
-        // 获得未被修改的文件, 给定两个commit
-        // untrackfile 被重写需要报错的辅助函数
+        // given branch modified(has different content), but current branch doesn't modified,
+        // checked out from the commit at the front of the given branch, stage it
+        for (String fileName : givenChanged) {
+            if (currentUnModified.contains(fileName)) {
+                checkoutFile(fileName, givenBranchCommitID);
+                stageAdd.put(fileName, givenCommit.getFileHash(fileName));
+            }
+        }
 
+        // 在当前分支中修改过但在给定分支中没有修改的文件，这些文件将保持不变，保留当前分支的内容。
+        // Any files that have been modified in the current branch but not in the given branch
+
+        // 在当前分支和给定分支中修改相同文件的内容，且修改方式相同（例如都修改了内容或者都删除了文件），这些文件在合并时将不会被修改，保持当前的状态。
+
+
+        // 在分叉点时不存在的文件，且只在当前分支中存在的文件，这些文件保持不变。
+
+        // 在分叉点时不存在的文件，且只在给定分支中存在的文件，这些文件将被检出并加入暂存区。
+        for (String fileName : givenAdded) {
+            if (!currentCommit.isTrackedFile(fileName)) {
+                checkoutFile(fileName, givenBranchCommitID);
+                stageAdd.put(fileName, givenCommit.getFileHash(fileName));
+            }
+        }
+
+        // 在分叉点时存在但未被当前分支修改的文件，在给定分支中缺失的文件，这些文件将被删除，并且不再被跟踪。
+        for (String fileName : currentUnModified) {
+            if (!givenCommit.isTrackedFile(fileName)) {
+                rm(fileName);
+            }
+        }
+
+        // 在分叉点时存在但未被给定分支修改的文件，在当前分支中缺失的文件，这些文件将保持缺失状态。
+
+        //如果当前分支和给定分支对同一文件做出了不同的修改（即修改方式不同），则发生冲突
+        //a. 两个分支对同一个文件内容的修改不同。
+        //b. 一个分支修改了文件，而另一个分支删除了该文件。
+        //c. 文件在分叉点时不存在，但当前分支和给定分支都有不同的内容。
+        Set<String> conflictFiles = new HashSet<>();
+        for (String fileName : currentChanged) {
+            if (givenChanged.contains(fileName)) {
+                if (!givenCommit.getFileHash(fileName).equals(currentCommit.getFileHash(fileName))) {
+                    conflictFiles.add(fileName);
+                }
+            }
+            if (givenRemoved.contains(fileName)) {
+                conflictFiles.add(fileName);
+            }
+        }
+        for (String fileName : givenChanged) {
+            if (currentChanged.contains(fileName)) {
+                if (!givenCommit.getFileHash(fileName).equals(currentCommit.getFileHash(fileName))) {
+                    conflictFiles.add(fileName);
+                }
+            }
+            if (currentRemoved.contains(fileName)) {
+                conflictFiles.add(fileName);
+            }
+        }
+        for (String fileName : givenAdded) {
+            if (currentAdded.contains(fileName)) {
+                if (!givenCommit.getFileHash(fileName).equals(currentCommit.getFileHash(fileName))) {
+                    conflictFiles.add(fileName);
+                }
+            }
+        }
+
+        // replace the content files content
+        replaceConflictsContents(conflictFiles, currentCommit, givenCommit);
+        if (!conflictFiles.isEmpty()) {
+            MyUtils.exit("Encountered a merge conflict.");
+        }
+        String message = "Merged " + branchName + " into " + getCurrentBranch() + ".";
+        commit(message);
+        Commit newCommit = Commit.getCommit(getCurrentCommit());
+        newCommit.setOtherParentID(givenBranchCommitID);
 
     }
 
@@ -621,51 +726,10 @@ public class Repository {
         }
 
         // check weather the untracked file would been overwrite
-        // TODO: NEED TO SIMPLFY
-//        Set<String> untrackedFiles = new HashSet<>();
-//        getUntrackedFiles(untrackedFiles);
-//        String checkoutCommitID = branches.get(branch);
-//        Commit checkoutCommit = Commit.getCommit(checkoutCommitID);
-//        for (String fileName : untrackedFiles) {
-//            if (checkoutCommit.isTrackedFile(fileName)) {
-//                // check weather would be overwrite
-//                File file = join(CWD, fileName);
-//                if (!checkoutCommit.isSameFile(fileName, file)) { // content is not same, can overwrite
-//                    MyUtils.exit("There is an untracked file in the way; delete it, or add and commit it first.");
-//                }
-//            }
-//        }
         String checkoutCommitID = branches.get(branch);
-        //Commit checkoutCommit = Commit.getCommit(checkoutCommitID);
         checkUntrackedFile(checkoutCommitID);
 
-        // TODO: this change is right?
-        // Takes all files in the commit at the head of the given branch, and puts them in the working directory
-//        List<String> workingSpace = Utils.plainFilenamesIn(CWD);
-//        for (Map.Entry<String, String> entry : checkoutCommit.getTrackedFilesMap().entrySet()) {
-//            String fileName = entry.getKey();
-//            String fileHash = entry.getValue();
-//            File file = join(CWD, fileName);
-//            if (workingSpace.contains(fileName) && checkoutCommit.isSameFile(fileName, file)) {
-//                // working space has the file and content is same don't need rewrite
-//                continue;
-//            } else {
-//                // rewrite the file
-//                MyUtils.createFile(file);
-//                String content = readContentsAsString(join(BLOBS, fileHash));
-//                writeContents(file, content);
-//            }
-//        }
-//
-//
-//        // Any files that are tracked in the current branch but are not present in the checked-out branch are deleted.
-//        for (String fileName : currentCommit.getTrackedFilesMap().keySet()) {
-//            if (!checkoutCommit.isTrackedFile(fileName)) {
-//                File file = join(CWD, fileName);
-//                restrictedDelete(file);
-//            }
-//
-//        }
+        // checkout to identify commitID
         checkoutCommit(currentCommitID, checkoutCommitID);
 
         // update the breach and commit
@@ -711,7 +775,6 @@ public class Repository {
 
     /**
      * Checkout files to identify commit id version.
-     * TODO: Commit id may less than 40 letters ？
      * Takes the version of the file as it exists in the commit id and puts it in the working directory,
      * overwriting the version of the file that’s already there if there is one.
      * The new version of the file is not staged.
@@ -732,7 +795,6 @@ public class Repository {
 
         // rewrite the content
         File workingSpaceFile = join(CWD, fileName);
-        // todo: add this is right?
         // if the content is same no need to rewrite
         if (workingSpaceFile.exists() && commit.isSameFile(fileName, workingSpaceFile)) {
             return;
@@ -854,4 +916,60 @@ public class Repository {
         return splitPoint;
     }
 
+    /**
+     * Split the modified files and unmodified files between two commits
+     * The modified can be add, rm or changed
+     */
+    private static void splitModified(Commit splitCommit, Commit commit, Set<String> modified,
+                                      Set<String> unModified, Set<String> add, Set<String> rm, Set<String> change) {
+
+        for (String fileName : commit.getTrackedFilesMap().keySet()) {
+            if (splitCommit.isTrackedFile(fileName)) {
+                if (splitCommit.getFileHash(fileName).equals(commit.getFileHash(fileName))) {
+                    unModified.add(fileName);
+                } else {
+                    modified.add(fileName); // content is been modified
+                    change.add(fileName);
+                }
+            } else {
+                modified.add(fileName);     // file is been added
+                add.add(fileName);
+            }
+        }
+
+        // file is been deleted
+        for (String fileName : splitCommit.getTrackedFilesMap().keySet()) {
+            if (!commit.isTrackedFile(fileName)) {
+                modified.add(fileName);
+                rm.add(fileName);
+            }
+        }
+
+    }
+
+    /** Replace the conflict content files. */
+    private static void replaceConflictsContents(Set<String> conflicts, Commit currentCommit, Commit givenCommit) {
+        for (String fileName : conflicts) {
+            String currentContent = getContentOfFile(currentCommit, fileName);
+            String givenContent = getContentOfFile(givenCommit, fileName);
+            String content = "<<<<<<< HEAD\n" + currentContent +
+                    "=======\n" + givenContent + ">>>>>>>";
+            File file = join(CWD, fileName);
+            MyUtils.createFile(file);
+            writeContents(file, content);
+            String fileHash = sha1(content);
+            MyUtils.saveBlobFile(file);
+            stageAdd.put(fileName, fileHash);
+        }
+
+    }
+
+    /** Get the content of file in the commit, if file is deleted, the file is empty. */
+    private static String getContentOfFile(Commit commit, String fileName) {
+        if (commit.isTrackedFile(fileName)) {
+            File file = join(BLOBS, commit.getFileHash(fileName));
+            return readContentsAsString(file);
+        }
+        return "";
+    }
 }

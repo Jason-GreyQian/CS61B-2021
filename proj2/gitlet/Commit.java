@@ -84,6 +84,11 @@ public class Commit implements Serializable {
         return trackedMaps;
     }
 
+    /** Set the second parent id. */
+    public void setOtherParentID(String otherParentID) {
+        this.otherParentID = otherParentID;
+    }
+
     // Some useful function
 
     /**
