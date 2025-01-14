@@ -88,9 +88,11 @@ public class Repository {
      * |----|----the blobs obj store in it
      */
     public static void init() {
-        // If there is already a Gitlet version-control system in the current directory, it should abort.
+        // If there is already a Gitlet version-control system
+        // in the current directory, it should abort.
         if (GITLET_DIR.exists()) {
-            MyUtils.exit("A Gitlet version-control system already exists in the current directory.");
+            MyUtils.exit("A Gitlet version-control system "
+                    + "already exists in the current directory.");
         }
 
         // setup the files and folders
@@ -128,9 +130,11 @@ public class Repository {
         String currentCommitID = getCurrentCommit();
         Commit currentCommit = Commit.getCommit(currentCommitID);
 
-        if (currentCommit.isSameFile(fileName, file)) {         // if the file's content is same as the current commit's, don't stage it
+        if (currentCommit.isSameFile(fileName, file)) {
+            // if the file's content is same as the current commit's, don't stage it
             stageAdd.remove(fileName);
-        } else {                                                // else add the file and save the copy of it
+        } else {
+            // if the file's content is same as the current commit's, don't stage it
             String fileHash = MyUtils.saveBlobFile(file);
             stageAdd.put(fileName, fileHash);
         }
@@ -376,7 +380,8 @@ public class Repository {
     /**
      * Rm the branch.
      * Deletes the branch with the given name.
-     * it does not mean to delete all commits that were created under the branch, or anything like that.
+     * it does not mean to delete all commits that were created
+     * under the branch, or anything like that.
      * If a branch with the given name does not exist, aborts.
      * Print the error message A branch with that name does not exist.
      * If you try to remove the branch you’re currently on, aborts,
@@ -434,23 +439,29 @@ public class Repository {
      * merge function.
      * Processing steps:
      * 1.Any files that have been modified in the given branch since the split point,
-     * but not modified in the current branch since the split point should be changed to their versions
+     * but not modified in the current branch since
+     * the split point should be changed to their versions
      * in the given branch (checked out from the commit at the front of the given branch).
      * These files should then all be automatically staged.
      * 2.Any files that have been modified in the current branch but not in the given branch
      * since the split point should stay as they are.
      * <p>
      * Special cases not need merge.
-     * 1.If the split point is the same commit as the given branch, then we do nothing; the merge is complete,
-     * and the operation ends with the message Given branch is an ancestor of the current branch.
-     * 2.If the split point is the current branch, then the effect is to check out the given branch,
-     * and the operation ends after printing the message Current branch fast-forwarded.
+     * 1.If the split point is the same commit as the given branch, then we do nothing;
+     * the merge is complete,
+     * and the operation ends with the message Given branch is
+     * an ancestor of the current branch.
+     * 2.If the split point is the current branch, then the effect is to
+     * check out the given branch, and the operation ends after
+     * printing the message Current branch fast-forwarded.
      * <p>
      * Failure cases:
-     * 1.If there are staged additions or removals present, print the error message You have uncommitted changes.
+     * 1.If there are staged additions or removals present, print the error message
+     * You have uncommitted changes.
      * 2.If a branch with the given name does not exist,
      *   print the error message A branch with that name does not exist.
-     * 3.If attempting to merge a branch with itself, print the error message Cannot merge a branch with itself.
+     * 3.If attempting to merge a branch with itself, print the error message
+     * Cannot merge a branch with itself.
      * 4.If an untracked file in the current commit would be overwritten or deleted by the merge,
      * print There is an untracked file in the way; delete it, or add and commit it first. and exit;
      */
@@ -533,7 +544,8 @@ public class Repository {
         }
 
         // 在分叉点时存在但未被当前分支修改的文件，在给定分支中缺失的文件，这些文件将被删除，并且不再被跟踪。
-        // 6.given branch deleted, and the file is unmodified in current branch, delete it and untracked
+        // 6.given branch deleted, and the file is unmodified in current branch,
+        // delete it and untracked
         for (String fileName : givenRemoved) {
             if (currentUnModified.contains(fileName)) {
                 // this will overwrite the stageAdd funtion
@@ -553,7 +565,8 @@ public class Repository {
         for (String fileName : currentChanged) {
             // 8.a both changed and content is not same
             if (givenChanged.contains(fileName)) {
-                if (!givenCommit.getFileHash(fileName).equals(currentCommit.getFileHash(fileName))) {
+                if (!givenCommit.getFileHash(fileName).equals(
+                        currentCommit.getFileHash(fileName))) {
                     conflictFiles.add(fileName);
                 }
             }
@@ -564,7 +577,8 @@ public class Repository {
         }
         for (String fileName : givenChanged) {
             if (currentChanged.contains(fileName)) {
-                if (!givenCommit.getFileHash(fileName).equals(currentCommit.getFileHash(fileName))) {
+                if (!givenCommit.getFileHash(fileName).equals(
+                        currentCommit.getFileHash(fileName))) {
                     conflictFiles.add(fileName);
                 }
             }
@@ -575,7 +589,8 @@ public class Repository {
         // 8.3 both added and content is not same.
         for (String fileName : givenAdded) {
             if (currentAdded.contains(fileName)) {
-                if (!givenCommit.getFileHash(fileName).equals(currentCommit.getFileHash(fileName))) {
+                if (!givenCommit.getFileHash(fileName).equals(
+                        currentCommit.getFileHash(fileName))) {
                     conflictFiles.add(fileName);
                 }
             }
@@ -596,9 +611,9 @@ public class Repository {
     }
 
 
-    // ================================================================================================================
+    // ===============================================================
     // This below is the Helper function
-    // ================================================================================================================
+    // ===============================================================
 
     /**
      * Helper function for setup files and the maps.
@@ -742,8 +757,10 @@ public class Repository {
      * Some spacial cases:
      * If no branch with that name exists, print No such branch exists.
      * If that branch is the current branch, print No need to checkout the current branch.
-     * If a working file is untracked in the current branch and would be overwritten by the checkout,
-     * print There is an untracked file in the way; delete it, or add and commit it first. and exit;
+     * If a working file is untracked in the current branch
+     * and would be overwritten by the checkout,
+     * print There is an untracked file in the way; delete it,
+     * or add and commit it first. and exit;
      */
     private static void checkoutBranch(String branch) {
         getInfoMaps();
@@ -810,7 +827,8 @@ public class Repository {
 
     /**
      * Checkout files to identify commit id version.
-     * Takes the version of the file as it exists in the commit id and puts it in the working directory,
+     * Takes the version of the file as it exists in the commit id
+     * and puts it in the working directory,
      * overwriting the version of the file that’s already there if there is one.
      * The new version of the file is not staged.
      */
@@ -912,8 +930,10 @@ public class Repository {
             if (checkoutCommit.isTrackedFile(fileName)) {
                 // check weather would be overwrite
                 File file = join(CWD, fileName);
-                if (!checkoutCommit.isSameFile(fileName, file)) { // content is not same, can overwrite
-                    MyUtils.exit("There is an untracked file in the way; delete it, or add and commit it first.");
+                if (!checkoutCommit.isSameFile(fileName, file)) {
+                    // content is not same, can overwrite
+                    MyUtils.exit("There is an untracked file in the way;"
+                            + " delete it, or add and commit it first.");
                 }
             }
         }
@@ -949,7 +969,8 @@ public class Repository {
      * The modified can be add, rm or changed
      */
     private static void splitModified(Commit splitCommit, Commit commit, Set<String> modified,
-                                      Set<String> unModified, Set<String> add, Set<String> rm, Set<String> change) {
+                                      Set<String> unModified, Set<String> add,
+                                      Set<String> rm, Set<String> change) {
 
         for (String fileName : commit.getTrackedFilesMap().keySet()) {
             if (splitCommit.isTrackedFile(fileName)) {
@@ -978,13 +999,20 @@ public class Repository {
     /**
      * Replace the conflict content files.
      */
-    private static void replaceConflictsContents(Set<String> conflicts, Commit currentCommit, Commit givenCommit) {
+    private static void replaceConflictsContents(Set<String> conflicts,
+                                                 Commit currentCommit, Commit givenCommit) {
         getInfoMaps();
         for (String fileName : conflicts) {
             String currentContent = getContentOfFile(currentCommit, fileName);
             String givenContent = getContentOfFile(givenCommit, fileName);
-            String content = "<<<<<<< HEAD\n" + currentContent +
-                    "=======\n" + givenContent + ">>>>>>>";
+            if (!currentContent.endsWith("\n")) {
+                currentContent = currentContent + "\n";
+            }
+            if (!givenContent.endsWith("\n")) {
+                givenContent = givenContent + "\n";
+            }
+            String content = "<<<<<<< HEAD\n" + currentContent
+                    + "=======\n" + givenContent + ">>>>>>>";
             File file = join(CWD, fileName);
             MyUtils.createFile(file);
             writeContents(file, content);
