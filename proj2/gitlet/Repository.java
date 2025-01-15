@@ -113,9 +113,9 @@ public class Repository {
      * Add a copy of files to the staging area
      * Special cases:
      * 1. the content is same as the current commit's content,
-     *    don't need to add, if the file in the add area remove it
+     * don't need to add, if the file in the add area remove it
      * 2. stage an already-staged file overwrites the previous entry
-     *    in the staging area with the new contents.
+     * in the staging area with the new contents.
      * 3. if the file is stage_rm ,the file will no longer be staged for removal
      * 4. If the file does not exist, print the error message File does not exist.
      */
@@ -459,7 +459,7 @@ public class Repository {
      * 1.If there are staged additions or removals present, print the error message
      * You have uncommitted changes.
      * 2.If a branch with the given name does not exist,
-     *   print the error message A branch with that name does not exist.
+     * print the error message A branch with that name does not exist.
      * 3.If attempting to merge a branch with itself, print the error message
      * Cannot merge a branch with itself.
      * 4.If an untracked file in the current commit would be overwritten or deleted by the merge,
@@ -479,6 +479,7 @@ public class Repository {
             MyUtils.exit("Cannot merge a branch with itself.");
         }
 
+        String currentBranch = getCurrentBranch();
         String currentCommitID = getCurrentCommit();
         String givenBranchCommitID = branches.get(branchName);
         Commit currentCommit = Commit.getCommit(currentCommitID);
@@ -494,6 +495,11 @@ public class Repository {
 
         }
         if (splitPoint.equals(currentCommitID)) {
+            // fast forwarded
+            checkoutCommit(currentCommitID, givenBranchCommitID);
+            branches.put(currentBranch, givenBranchCommitID);
+            updateHEAD(currentBranch, givenBranchCommitID);
+            saveInfoMaps();
             MyUtils.exit("Current branch fast-forwarded.");
         }
 
@@ -539,9 +545,10 @@ public class Repository {
             if (!currentCommit.isTrackedFile(fileName)) {
                 checkoutFile(fileName, givenBranchCommitID);
                 stageAdd.put(fileName, givenCommit.getFileHash(fileName));
-                saveInfoMaps();
+                // saveInfoMaps();
             }
         }
+        saveInfoMaps();
 
         // 在分叉点时存在但未被当前分支修改的文件，在给定分支中缺失的文件，这些文件将被删除，并且不再被跟踪。
         // 6.given branch deleted, and the file is unmodified in current branch,
@@ -596,7 +603,7 @@ public class Repository {
             }
         }
 
-        saveInfoMaps();
+        // saveInfoMaps();
 
         // replace the content files content
         replaceConflictsContents(conflictFiles, currentCommit, givenCommit);
@@ -752,7 +759,7 @@ public class Repository {
      * overwriting the versions of the files that are already there if they exist.
      * 2. The given branch will now be considered the current branch (HEAD).
      * 3. Any files that are tracked in the current branch but are not present
-     *    in the checked-out branch are deleted.
+     * in the checked-out branch are deleted.
      * 4. The staging area is cleared
      * Some spacial cases:
      * If no branch with that name exists, print No such branch exists.
@@ -947,7 +954,8 @@ public class Repository {
         String splitPoint = "";
         String currentCommitID = getCurrentCommit();
         Commit currentBranchCommit = Commit.getCommit(currentCommitID);
-        Queue<String> currentBranchCommitSet = currentBranchCommit.getAllCommitsIDs(currentCommitID);
+        Queue<String> currentBranchCommitSet =
+                currentBranchCommit.getAllCommitsIDs(currentCommitID);
         String otherBranchCommitID = branches.get(branchName);
         Commit commit = Commit.getCommit(branches.get(branchName));
         Queue<String> otherBranchCommitSet = commit.getAllCommitsIDs(otherBranchCommitID);
@@ -1005,14 +1013,8 @@ public class Repository {
         for (String fileName : conflicts) {
             String currentContent = getContentOfFile(currentCommit, fileName);
             String givenContent = getContentOfFile(givenCommit, fileName);
-            if (!currentContent.endsWith("\n")) {
-                currentContent = currentContent + "\n";
-            }
-            if (!givenContent.endsWith("\n")) {
-                givenContent = givenContent + "\n";
-            }
             String content = "<<<<<<< HEAD\n" + currentContent
-                    + "=======\n" + givenContent + ">>>>>>>";
+                    + "\n=======\n" + givenContent + ">>>>>>>";
             File file = join(CWD, fileName);
             MyUtils.createFile(file);
             writeContents(file, content);
